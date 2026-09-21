@@ -166,14 +166,7 @@ LogicalType UCUtils::ColumnTypeFromDefinition(const UCAPIColumnDefinition &colum
 	return UCUtils::TypeFromJson(column.type_json);
 }
 
-LogicalType UCUtils::TypeToLogicalType(const string &type_text_input) {
-	// Databricks annotates collated string columns as e.g. "string collate UTF8_BINARY".
-	// DuckDB has no collated string type, so drop the collation clause and map to VARCHAR.
-	string type_text = type_text_input;
-	auto collate_pos = type_text.find(" collate ");
-	if (collate_pos != string::npos) {
-		type_text = type_text.substr(0, collate_pos);
-	}
+LogicalType UCUtils::TypeToLogicalType(const string &type_text) {
 	if (type_text == "tinyint") {
 		return LogicalType::TINYINT;
 	} else if (type_text == "smallint") {
@@ -185,7 +178,9 @@ LogicalType UCUtils::TypeToLogicalType(const string &type_text_input) {
 	} else if (type_text == "long") {
 		return LogicalType::BIGINT;
 	} else if (type_text == "string" || type_text.find("varchar(") == 0 || type_text == "char" ||
-	           type_text.find("char(") == 0) {
+	           type_text.find("char(") == 0 || type_text.find("string collate ") == 0) {
+		// Databricks annotates a default-collated STRING column as e.g. "string collate
+		// UTF8_BINARY". DuckDB has no collated string type, so map straight to VARCHAR.
 		return LogicalType::VARCHAR;
 	} else if (type_text == "double") {
 		return LogicalType::DOUBLE;
@@ -292,7 +287,7 @@ LogicalType UCUtils::TypeToLogicalType(const string &type_text_input) {
 		}
 	}
 
-	throw NotImplementedException("Tried to fallback to unknown type for '%s'", type_text_input);
+	throw NotImplementedException("Tried to fallback to unknown type for '%s'", type_text);
 	// fallback for unknown types
 	return LogicalType::VARCHAR;
 }

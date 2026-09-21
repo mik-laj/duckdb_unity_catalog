@@ -324,19 +324,29 @@ def test_unmapped_type_lists_but_is_refused_on_read(name, tmp_path):
     assert f"'v', which Unity Catalog reports as '{typ.text}'" in read.stderr, combined
 
 
-def test_collated_string_falls_back_to_the_report(tmp_path):
+_COLLATED_CASES = {
+    "top_level": ("string collate UTF8_BINARY", "VARCHAR"),
+    # A collation clause nested inside a container's type text must not confuse the container's
+    # own parsing (e.g. by eating the closing '>' before recursion ever sees the leaf).
+    "nested_in_array": ("array<string collate UTF8_BINARY>", "VARCHAR[]"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_COLLATED_CASES))
+def test_collated_string_falls_back_to_the_report(name, tmp_path):
     """Databricks reports a default-collated STRING column as `type_text` e.g. 'string collate
     UTF8_BINARY', with no `type_json` alongside it (github.com/duckdb/unity_catalog#112). The
-    text-type fallback must still map this to VARCHAR: listing shows the real type, not UNKNOWN,
-    and a table with no log yet falls back to the reported schema instead of being refused as
-    unreadable."""
-    spec = [_col("id", _INT), _col("name", _text("string collate UTF8_BINARY"))]
+    text-type fallback must still map this to VARCHAR, top-level and nested in a container alike:
+    listing shows the real type, not UNKNOWN, and a table with no log yet falls back to the
+    reported schema instead of being refused as unreadable."""
+    type_text, expected_type = _COLLATED_CASES[name]
+    spec = [_col("id", _INT), _col("name", _text(type_text))]
     with _catalog(_columns(spec), tmp_path, "collated") as mock:
         listed, listed_out = run(mock, "SELECT column_types FROM (SHOW ALL TABLES) WHERE name = 'collated';")
         read, read_out = run(mock, "SELECT id FROM unity.plain.collated;")
 
     assert listed.returncode == 0, listed_out + listed.stderr
-    assert "[INTEGER, VARCHAR]" in listed_out, listed_out
+    assert f"[INTEGER, {expected_type}]" in listed_out, listed_out
 
     combined = read_out + read.stderr
     # No log and no data means the read still fails -- but on the missing table, not the type.
