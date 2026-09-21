@@ -327,8 +327,9 @@ def test_unmapped_type_lists_but_is_refused_on_read(name, tmp_path):
 _COLLATED_CASES = {
     "top_level": ("string collate UTF8_BINARY", "VARCHAR"),
     # A collation clause nested inside a container's type text must not confuse the container's
-    # own parsing (e.g. by eating the closing '>' before recursion ever sees the leaf).
-    "nested_in_array": ("array<string collate UTF8_BINARY>", "VARCHAR[]"),
+    # own parsing (e.g. by eating the closing '>' before recursion ever sees the leaf). column_types
+    # is itself a LIST(VARCHAR), so a list-typed column's entry prints quoted, e.g. 'VARCHAR[]'.
+    "nested_in_array": ("array<string collate UTF8_BINARY>", "'VARCHAR[]'"),
 }
 
 
