@@ -178,7 +178,9 @@ LogicalType UCUtils::TypeToLogicalType(const string &type_text) {
 	} else if (type_text == "long") {
 		return LogicalType::BIGINT;
 	} else if (type_text == "string" || type_text.find("varchar(") == 0 || type_text == "char" ||
-	           type_text.find("char(") == 0) {
+	           type_text.find("char(") == 0 || type_text.find("string collate ") == 0) {
+		// Databricks annotates a default-collated STRING column as e.g. "string collate
+		// UTF8_BINARY". DuckDB has no collated string type, so map straight to VARCHAR.
 		return LogicalType::VARCHAR;
 	} else if (type_text == "double") {
 		return LogicalType::DOUBLE;
